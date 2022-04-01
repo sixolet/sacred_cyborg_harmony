@@ -41,8 +41,10 @@ Engine_TheMachine : CroneEngine {
 		
 		this.addCommand("noteOff", "i", { |msg|
 		  var voice = msg[1].asInteger;
-		  harmonyVoices[voice].set(\gate, 0);
-		  harmonyVoices[voice] = nil;
+		  if(harmonyVoices.includesKey(voice), {
+		    harmonyVoices[voice].set(\gate, 0);
+		    harmonyVoices[voice] = nil;
+		  });
 		});
   
     Routine.new({
@@ -77,6 +79,9 @@ Engine_TheMachine : CroneEngine {
   
   free {
     quantizedVoice.free;
+    harmonyVoices.do { |v|
+      v.free
+    };    
     pitchFinderSynth.free;
     infoBus.free;
     pitchHandler.free;
