@@ -89,6 +89,11 @@ function new_chord()
       end
     end
   else
+    if chord_name ~= nil then
+      for i = 1,5,1 do
+        engine.noteOff(i)
+      end
+    end
     chord_name = nil
   end
 end
