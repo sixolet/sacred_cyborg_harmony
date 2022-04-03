@@ -7,109 +7,79 @@ for i, v in pairs(music.SCALES) do
   SCALE_NAMES[i] = v["name"]
 end
 
-AUTO_OPTS = {"off", "root"}
-
-AUTO_OPT_OFF = 1
-AUTO_OPT_ROOT = 2
-
-ACTIONS = {"none", "target", "passing"}
-
-ACTION_NONE = 1
-ACTION_TARGET = 2
-ACTION_PASSING = 3
-
 scale = nil
+scaleSet = {}
+activePitchClasses = {}
 sungNote = nil
 
 function set_scale()
   scale = music.generate_scale(params:get("root") - 12, scale_name(), 10)
+  scaleSet = {}
+  for i, note in ipairs(scale) do
+    scaleSet[note % 12] = true
+  end
 end
 
 function scale_name()
   return SCALE_NAMES[params:get("scale")]
 end
 
-function new_chord()
-  local ranges
-  if params:get("population") == 2 then
-    ranges = {bass, soprano}
-  elseif params:get("population") == 3 then
-    ranges = {bass, tenor, soprano}
-  elseif params:get("population") == 4 then
-    ranges = {contrabass, tenor, alto, soprano}
-  elseif params:get("population") == 5 then
-    ranges = {contrabass, tenor, alto, alto, soprano}
-  end
-  
-  if params:get("style") == AUTO_OPT_ROOT then
-    local possible_chords = {}
-    local all_chords = music.chord_types_for_note(
-      sungNote, params:get("root"), scale_name())
-    for i, v in ipairs(all_chords) do
-      if params:get("population") <= 3 then
-        -- Only triads
-        if util.string_starts(v, "M") and not string.find(v, " ") then
-          table.insert(possible_chords, v)
-        end
-      elseif params:get("population") == 4 then
-        -- Exclude the big jazz chords
-        if not (string.find(v, "11") or string.find(v, "13") or string.find(v, "th")) then 
-          table.insert(possible_chords, v)
-        end
-      else
-        table.insert(possible_chords, v)
-      end
-    end
-    
-    if #possible_chords == 0 then
-      return
-    end
-    
-    chord_name = possible_chords[ math.random(1, #possible_chords)]
-    local chord_notes = music.generate_chord(sungNote, chord_name)
-    while #chord_notes > params:get("population") do
-      if params:get("population") == 2 then
-        table.remove(1)
-      else
-        table.remove(chord_notes, math.ceil(#chord_notes/2))
-      end
-    end
-    while #chord_notes < params:get("population") do
-      table.insert(chord_notes, chord_notes[math.random(1, #chord_notes)])
-    end
-    for i, v in ipairs(chord_notes) do
-      chord_notes[i] = ranges[i](v)
-    end
-    for i=1,5,1 do
-      if chord_notes[i] == nil then
-        engine.noteOff(i)
-      else
-        local freq = music.note_num_to_freq(chord_notes[i])
-        engine.noteOn(freq, 0.5, i)
-      end
-    end
-  else
-    if chord_name ~= nil then
-      for i = 1,5,1 do
-        engine.noteOff(i)
-      end
-    end
-    chord_name = nil
-  end
-end
+
 
 function redraw()
   screen.clear()
-  if chord_name then
-    screen.move(0,40)
-    screen.level(15)
-    screen.text(music.note_num_to_name(sungNote) .. " " .. chord_name)
+  local x, y
+  for i=0,11,1 do
+    if scaleSet[i] ~= nil then
+      screen.level(15)
+    else
+      screen.level(0)
+    end
+    x = 64 - 35*math.sin(2 * math.pi * (i/12))
+    y = 32 + 25*math.cos(2 * math.pi * (i/12))
+    screen.circle(x, y, 2)
+    screen.fill()
+    if sungNote ~= nil and sungNote % 12 == i then
+      screen.move(64, 32)
+      screen.line(x, y)
+      screen.stroke()
+    end
+  end
+  screen.level(8)
+  local count = 0
+  for i=0,11,1 do
+    if activePitchClasses[i] == true then
+      x = 64 - 35*math.sin(2 * math.pi * (i/12))
+      y = 32 + 25*math.cos(2 * math.pi * (i/12))
+      if count == 0 then
+        screen.move(x, y)
+      else
+        screen.line(x, y)
+      end
+      count = count + 1
+    end
+  end
+  if count > 1 then
+    screen.close()
+    screen.stroke()
+  elseif count == 1 then
+    screen.circle(x, y, 6)
+    screen.stroke()
+  end
+  if unquantizedSungNote ~= nil then
+    local i = unquantizedSungNote % 12
+    local x = 64 - 10*math.sin(2 * math.pi * (i/12))
+    local y = 32 + 7*math.cos(2 * math.pi * (i/12))
+    screen.level(8)
+    screen.move(64, 32)
+    screen.line(x, y)
+    screen.stroke()
   end
   screen.update()
 end
 
 function init()
-  
+  osc.event = osc_in
   screen_redraw_clock = clock.run(
     function()
       while true do
@@ -121,13 +91,28 @@ function init()
       end
     end
   )
+  params:add_separator("lead cyborg")
   params:add_number("root","root",24,35,24, 
-    function(param) return music.note_num_to_name(param:get(), true) end,
+    function(param) return music.note_num_to_name(param:get()) end,
     true
     )
   params:set_action("root", set_scale)
   params:add_option("scale", "scale", SCALE_NAMES, 1)
   params:set_action("scale", set_scale)
+  local pull_spec = controlspec.UNIPOLAR:copy()
+  pull_spec.default = 1
+  params:add_control("pull", "quantize amount", pull_spec)
+  local amp_spec = controlspec.AMP:copy()
+  amp_spec.default = 1  
+  params:add_control("lead amp", "lead amp", amp_spec)
+  
+  params:add_separator("cyborg chorus")
+  local my_delay = controlspec.DELAY:copy()
+  my_delay.default = 0.02
+  params:add_control("delay", "max random delay", my_delay)
+  params:add_control("vibrato", "vibrato amount", controlspec.UNIPOLAR)
+  params:add_control("vibrato speed", "vibrato speed", controlspec.LOFREQ)
+  params:add_control("chorus amp", "chorus amp", amp_spec)
   
   midi_device = {} -- container for connected midi devices
   midi_device_names = {}
@@ -138,16 +123,11 @@ function init()
     local full_name = 
     table.insert(midi_device_names,"port "..i..": "..util.trim_string_to_width(midi_device[i].name,40)) -- register its name
   end
-  params:add_separator("cyborg choir")
-  params:add_option("style", "harmony style", AUTO_OPTS, AUTO_OPT_OFF)
-  params:add_option("new note", "new note action", ACTIONS, ACTION_TARGET)
-  params:add_number("population", "population", 2, 5, 3)
   
   
   params:add_separator("midi")
   params:add_option("midi target", "midi target",midi_device_names,1)
   params:set_action("midi target", midi_target)
-  params:add_number("bend range", "bend range", 1, 48, 2)
 
   params:bang()
 end
@@ -166,11 +146,15 @@ function process_midi(data)
     -- global
     note = d.note
     active_notes[d.note] = true
-    engine.noteOn(music.note_num_to_freq(d.note), d.vel/127, d.note)
+    activePitchClasses[d.note % 12] = true
+    engine.noteOn(music.note_num_to_freq(d.note), params:get("chorus amp")*d.vel/127, math.random()*params:get("delay"), params:get("vibrato"), params:get("vibrato speed"), d.note)
+    screen_dirty = true
     -- print("on", d.note)
   elseif d.type == "note_off" then
     active_notes[d.note] = false
+    activePitchClasses[d.note % 12] = nil
     engine.noteOff(d.note)
+    screen_dirty = true
     -- print("off", d.note)
   -- elseif d.type == "pitchbend" then
   --   local bend_st = (util.round(d.val / 2)) / 8192 * 2 -1 -- Convert to -1 to 1
@@ -182,27 +166,18 @@ function osc_in(path, args, from)
 
   if path == "/measuredPitch" then
     local pitch = args[1]
+    unquantizedSungNote = freq_to_note_num_float(pitch)
+    screen_dirty = true
     if scale == nil then
       return
     end
     -- Introduce a little bit of hysteresis if we're near
-    if sungNote ~= nil and pitch < music.note_num_to_freq(sungNote + 1)  and pitch > music.note_num_to_freq(sungNote - 1) then
-      pitch = (pitch + music.note_num_to_freq(sungNote))/2
-    end
-    local rawNote = music.freq_to_note_num(pitch)
     if scale ~= nil then
-      local newNote = music.snap_note_to_array(rawNote, scale)
+      local newNote = quantize(scale, pitch, sungNote)
       if sungNote ~= newNote then
         sungNote = newNote
-        screen_dirty = true
-        engine.acceptQuantizedPitch(music.note_num_to_freq(sungNote))
-        if params:get("new note") == ACTION_TARGET then
-          new_chord()
-        end
-        -- print(newNote, pitch)
+        engine.acceptQuantizedPitch(music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"))
       end
     end
   end
 end
-
-osc.event = osc_in

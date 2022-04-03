@@ -20,22 +20,35 @@ Engine_TheMachine : CroneEngine {
 			luaOscAddr.sendMsg("/measuredPitch", pitch);
 		}, '/tr');
 		
-		this.addCommand("acceptQuantizedPitch", "f", { |msg|
+		this.addCommand("acceptQuantizedPitch", "fff", { |msg|
 			var pitch = msg[1].asFloat;
+			var pull = msg[2].asFloat;
+			var amp = msg[3].asFloat;
 			if(quantizedVoice != nil, {
-  			quantizedVoice.set(\targetHz, pitch);
+  			quantizedVoice.set(\targetHz, pitch, \pull, pull, \amp, amp);
   		});
 		});
 		
-		this.addCommand("noteOn", "ffi", { |msg|
+		this.addCommand("noteOn", "fffffi", { |msg|
 			var pitch = msg[1].asFloat;
 			var velocity = msg[2].asFloat;
-			var voice = msg[3].asInteger;
+			var delay = msg[3].asFloat;
+			var vibratoAmount = msg[4].asFloat;
+			var vibratoSpeed = msg[5].asFloat;
+			var voice = msg[6].asInteger;
 			if(harmonyVoices.includesKey(voice), {
   			harmonyVoices[voice].set(\targetHz, pitch);
   			harmonyVoices[voice].set(\amp, velocity);
   		}, {
-  		  harmonyVoices[voice] = Synth(\grainVoice, [out: 0, infoBus: infoBus, targetHz: pitch, amp: velocity], addAction: \addAfter, target: pitchFinderSynth, timeDispersion: 0.01);
+  		  harmonyVoices[voice] = Synth(\grainVoice, [
+  		    out: 0, 
+  		    infoBus: infoBus, 
+  		    targetHz: pitch, 
+  		    amp: velocity, 
+  		    timeDispersion: 0.01,
+  		    delay: delay,
+  		    vibratoAmount: vibratoAmount,
+  		    vibratoSpeed: vibratoSpeed], addAction: \addAfter, target: pitchFinderSynth);
   		});
 		});
 		
@@ -61,19 +74,22 @@ Engine_TheMachine : CroneEngine {
       
       }).add;
     
-      SynthDef(\grainVoice, { |out, infoBus, targetHz, amp=1, delay=0, formantRatio=1, gate=1|
+      SynthDef(\grainVoice, { |out, infoBus, targetHz, amp=1, delay=0, formantRatio=1, gate=1, vibratoAmt = 0, vibratoRate = 3, pull = 1|
         var info = DelayN.kr(In.kr(infoBus, 2), delay+0.01, delay);
-        var snd = DelayN.ar(Mix.ar(SoundIn.ar([0, 1])), delay+0.01, delay);
-        var ratio = info[1].if(targetHz.lag(0.05)/info[0], 1);
         var env = Env.asr(0.2);
+        var envUgen = EnvGen.kr(env, gate, doneAction: Done.freeSelf);        
+        var snd = DelayN.ar(Mix.ar(SoundIn.ar([0, 1])), delay+0.01, delay);
+        var adjustedTargetHz = (targetHz.cpsmidi + (envUgen * Amplitude.kr(snd)*vibratoAmt*SinOsc.kr(vibratoRate))).midicps;
+        var ratio = (pull*info[1].if(adjustedTargetHz.lag(0.05)/info[0], 1)) + (1 - pull);
+
         ratio = Sanitize.kr(ratio, 1);
-        Out.ar(out, amp.lag(0.1)*EnvGen.kr(env, gate, doneAction: Done.freeSelf)*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio)!2); 
+        Out.ar(out, amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio)!2); 
       }).add;    
       
       Server.default.sync;
       // This runs the whole time.
       pitchFinderSynth = Synth(\follower, [infoBus: infoBus]);
-      quantizedVoice = Synth(\grainVoice, [out: 0, infoBus: infoBus, targetHz: 180], addAction: \addAfter, target: pitchFinderSynth, timeDispersion: 0.01);
+      quantizedVoice = Synth(\grainVoice, [out: 0, infoBus: infoBus, targetHz: 180, timeDispersion: 0.01], addAction: \addAfter, target: pitchFinderSynth);
     }).play;
   }
   
