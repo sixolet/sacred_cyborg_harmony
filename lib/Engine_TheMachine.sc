@@ -1,7 +1,7 @@
 Engine_TheMachine : CroneEngine {
 	classvar luaOscPort = 10111;
 
-  var pitchFinderSynth, infoBus, quantizedVoice, harmonyVoices, pitchHandler;
+  var pitchFinderSynth, infoBus, quantizedVoice, harmonyVoices, pitchHandler, leadBus, choirBus, endOfChainSynth;
   
 	*new { arg context, doneCallback;
     	  
@@ -31,7 +31,7 @@ Engine_TheMachine : CroneEngine {
     		});
     		Server.sync;
     		"starting pitch".postln;
-	  	  pitchFinderSynth = Synth(\follower, [infoBus: infoBus, minFreq:low, maxFreq:high]);
+	  	  pitchFinderSynth = Synth(\follower, [out: choirBus, infoBus: infoBus, minFreq:low, maxFreq:high]);
 	  	}).play;
 		});
 		
@@ -83,6 +83,14 @@ Engine_TheMachine : CroneEngine {
   
     Routine.new({
       infoBus = Bus.control(numChannels: 2);
+      leadBus = Bus.audio(numChannels: 2);
+      choirBus = Bus.audio(numChannels: 2);
+      
+      SynthDef(\endOfChain, { 
+      
+        Out.ar(0, (In.ar(leadBus, numChannels: 2) + In.ar(choirBus, numChannels: 2)).softclip);
+      
+      }).add;
       
       SynthDef(\follower, { |infoBus, minFreq=82, maxFreq=1046|
         var snd = Mix.ar(SoundIn.ar([0, 1]));
@@ -104,15 +112,19 @@ Engine_TheMachine : CroneEngine {
         var snd = DelayN.ar(Mix.ar(SoundIn.ar([0, 1])), delay+0.01, delay);
         var adjustedTargetHz = (targetHz.cpsmidi.lag(0.05) + (envUgen * Amplitude.kr(snd)*vibratoAmount*SinOsc.kr(vibratoSpeed))).midicps;
         var ratio = (pull*info[1].lag(acquisition).if(adjustedTargetHz/info[0], 1)) + (1 - pull);
-
+        var shiftedSound, pannedSound;
+        
         ratio = Sanitize.kr(ratio, 1);
-        Out.ar(out, Pan2.ar(amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion)!2, pan)); 
+        shiftedSound = amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion);
+        pannedSound = Pan2.ar(shiftedSound, pan);
+        Out.ar(out, pannedSound); 
       }).add;    
       
       Server.default.sync;
       // This runs the whole time.
       pitchFinderSynth = Synth(\follower, [infoBus: infoBus]);
-      quantizedVoice = Synth(\grainVoice, [out: 0, infoBus: infoBus, targetHz: 180, timeDispersion: 0.01], addAction: \addAfter, target: pitchFinderSynth);
+      quantizedVoice = Synth(\grainVoice, [out: leadBus, infoBus: infoBus, targetHz: 180, timeDispersion: 0.01], addAction: \addAfter, target: pitchFinderSynth);
+      endOfChainSynth = Synth(\endOfChain, addAction: \addToTail);
     }).play;
   }
   
@@ -124,5 +136,6 @@ Engine_TheMachine : CroneEngine {
     pitchFinderSynth.free;
     infoBus.free;
     pitchHandler.free;
+    endOfChainSynth.free
   }
 }

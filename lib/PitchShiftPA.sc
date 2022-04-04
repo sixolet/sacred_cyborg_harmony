@@ -55,6 +55,9 @@ PitchShiftPA {
 			trigger = Impulse.ar(grainFreq + (LFNoise0.kr(grainFreq) * timeDispersion));
 		});
 		out = numChannels.collect({|ch| GrainBuf.ar(1, trigger[ch], grainDur[ch], localbuf[ch], formantRatio[ch], grainPos[ch])});
+		if (out.size == 1, {
+		  out = out[0];
+		});
 
 		^out;
 	}
