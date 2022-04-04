@@ -78,6 +78,13 @@ function redraw()
   screen.update()
 end
 
+function change_range()
+  if params:get("high") < 2*params:get("low") then
+    params:set("high", 2*params:get("low"))
+  end
+  engine.setInputRange(params:get("low"), params:get("high"))
+end
+
 function init()
   osc.event = osc_in
   screen_redraw_clock = clock.run(
@@ -91,7 +98,7 @@ function init()
       end
     end
   )
-  params:add_separator("lead cyborg")
+  params:add_separator("quantization")
   params:add_number("root","root",24,35,24, 
     function(param) return music.note_num_to_name(param:get()) end,
     true
@@ -99,20 +106,33 @@ function init()
   params:set_action("root", set_scale)
   params:add_option("scale", "scale", SCALE_NAMES, 1)
   params:set_action("scale", set_scale)
+  local lowspec = controlspec.FREQ:copy()
+  lowspec.default = 82
+  local highspec = controlspec.FREQ:copy()
+  highspec.default = 1046
+  params:add_control("low", "in range low", lowspec)
+  params:add_control("high", "in range high", highspec)
+  
+  params:add_separator("lead cyborg")
   local pull_spec = controlspec.UNIPOLAR:copy()
   pull_spec.default = 1
   params:add_control("pull", "quantize amount", pull_spec)
   local amp_spec = controlspec.AMP:copy()
   amp_spec.default = 1  
-  params:add_control("lead amp", "lead amp", amp_spec)
+  params:add_control("lead amp", "amp", amp_spec)
+  params:add_control("lead formants", "formants", controlspec.new(0.5, 2, 'lin', 0, 1, ""))
+  params:add_control("lead acquisition", "acquisition speed", controlspec.new(0.01, 0.5, 'exp', 0, 0.1, "s"))
   
-  params:add_separator("cyborg chorus")
+  params:add_separator("cyborg choir")
   local my_delay = controlspec.DELAY:copy()
   my_delay.default = 0.02
   params:add_control("delay", "max random delay", my_delay)
   params:add_control("vibrato", "vibrato amount", controlspec.UNIPOLAR)
   params:add_control("vibrato speed", "vibrato speed", controlspec.LOFREQ)
-  params:add_control("chorus amp", "chorus amp", amp_spec)
+  params:add_control("choir amp", "amp", amp_spec)
+  params:add_control("choir formants", "formants @C3", controlspec.new(0.5, 2, 'lin', 0, 1, ""))
+  params:add_control("keytrack", "formant keytrack", controlspec.new(-1, 2, 'lin', 0, 0, ""))
+  
   
   midi_device = {} -- container for connected midi devices
   midi_device_names = {}
@@ -147,7 +167,16 @@ function process_midi(data)
     note = d.note
     active_notes[d.note] = true
     activePitchClasses[d.note % 12] = true
-    engine.noteOn(music.note_num_to_freq(d.note), params:get("chorus amp")*d.vel/127, math.random()*params:get("delay"), params:get("vibrato"), params:get("vibrato speed"), d.note)
+    local hz = music.note_num_to_freq(d.note)
+    local formant = params:get("choir formants")*(hz/music.note_num_to_freq(60))^params:get("keytrack")
+    engine.noteOn(
+      hz, 
+      params:get("choir amp")*d.vel/127, 
+      math.random()*params:get("delay"), 
+      params:get("vibrato"), 
+      params:get("vibrato speed"),
+      formant,
+      d.note)
     screen_dirty = true
     -- print("on", d.note)
   elseif d.type == "note_off" then
@@ -166,6 +195,7 @@ function osc_in(path, args, from)
 
   if path == "/measuredPitch" then
     local pitch = args[1]
+    -- print(pitch)
     unquantizedSungNote = freq_to_note_num_float(pitch)
     screen_dirty = true
     if scale == nil then
@@ -176,7 +206,7 @@ function osc_in(path, args, from)
       local newNote = quantize(scale, pitch, sungNote)
       if sungNote ~= newNote then
         sungNote = newNote
-        engine.acceptQuantizedPitch(music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"))
+        engine.acceptQuantizedPitch(music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"))
       end
     end
   end
