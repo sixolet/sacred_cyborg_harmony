@@ -118,20 +118,23 @@ function init()
   pull_spec.default = 1
   params:add_control("pull", "quantize amount", pull_spec)
   local amp_spec = controlspec.AMP:copy()
-  amp_spec.default = 1  
+  amp_spec.default = 0.5 
   params:add_control("lead amp", "amp", amp_spec)
   params:add_control("lead formants", "formants", controlspec.new(0.5, 2, 'lin', 0, 1, ""))
   params:add_control("lead acquisition", "acquisition speed", controlspec.new(0.01, 0.5, 'exp', 0, 0.1, "s"))
+  params:add_control("lead pan", "pan", controlspec.BIPOLAR)
+  
   
   params:add_separator("cyborg choir")
   local my_delay = controlspec.DELAY:copy()
   my_delay.default = 0.02
   params:add_control("delay", "max random delay", my_delay)
-  params:add_control("vibrato", "vibrato amount", controlspec.UNIPOLAR)
+  params:add_control("vibrato", "vibrato amount", controlspec.new(0, 3, 'lin', 0, 0, ""))
   params:add_control("vibrato speed", "vibrato speed", controlspec.LOFREQ)
   params:add_control("choir amp", "amp", amp_spec)
   params:add_control("choir formants", "formants @C3", controlspec.new(0.5, 2, 'lin', 0, 1, ""))
   params:add_control("keytrack", "formant keytrack", controlspec.new(-1, 2, 'lin', 0, 0, ""))
+  params:add_control("choir pan", "pan", controlspec.BIPOLAR)
   
   
   midi_device = {} -- container for connected midi devices
@@ -176,6 +179,7 @@ function process_midi(data)
       params:get("vibrato"), 
       params:get("vibrato speed"),
       formant,
+      params:get("choir pan"),
       d.note)
     screen_dirty = true
     -- print("on", d.note)
@@ -206,7 +210,8 @@ function osc_in(path, args, from)
       local newNote = quantize(scale, pitch, sungNote)
       if sungNote ~= newNote then
         sungNote = newNote
-        engine.acceptQuantizedPitch(music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"))
+        engine.acceptQuantizedPitch(
+          music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"), params:get("lead pan"))
       end
     end
   end

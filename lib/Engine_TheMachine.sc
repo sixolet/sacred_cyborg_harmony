@@ -35,25 +35,27 @@ Engine_TheMachine : CroneEngine {
 	  	}).play;
 		});
 		
-		this.addCommand("acceptQuantizedPitch", "fffff", { |msg|
+		this.addCommand("acceptQuantizedPitch", "ffffff", { |msg|
 			var pitch = msg[1].asFloat;
 			var pull = msg[2].asFloat;
 			var amp = msg[3].asFloat;
 			var formantRatio = msg[4].asFloat;
 			var acquisition = msg[5].asFloat;
+			var pan = msg[6].asFloat;
 			if(quantizedVoice != nil, {
-  			quantizedVoice.set(\targetHz, pitch, \pull, pull, \amp, amp, \formantRatio, formantRatio, \acquisition, acquisition);
+  			quantizedVoice.set(\targetHz, pitch, \pull, pull, \amp, amp, \formantRatio, formantRatio, \acquisition, acquisition, \pan, pan);
   		});
 		});
 		
-		this.addCommand("noteOn", "ffffffi", { |msg|
+		this.addCommand("noteOn", "fffffffi", { |msg|
 			var pitch = msg[1].asFloat;
 			var velocity = msg[2].asFloat;
 			var delay = msg[3].asFloat;
 			var vibratoAmount = msg[4].asFloat;
 			var vibratoSpeed = msg[5].asFloat;
 			var formantRatio = msg[6].asFloat;
-			var voice = msg[7].asInteger;
+			var pan = msg[7].asFloat;
+			var voice = msg[8].asInteger;
 			if(harmonyVoices.includesKey(voice), {
   			harmonyVoices[voice].set(\targetHz, pitch);
   			harmonyVoices[voice].set(\amp, velocity);
@@ -94,16 +96,17 @@ Engine_TheMachine : CroneEngine {
       
       }).add;
     
-      SynthDef(\grainVoice, { |out, infoBus, targetHz, amp=1, delay=0, formantRatio=1, gate=1, vibratoAmt = 0, vibratoRate = 3, pull = 1, timeDispersion = 0.01, acquisition = 0.1|
+      SynthDef(\grainVoice, { |out, infoBus, targetHz, amp=1, delay=0, formantRatio=1, gate=1, vibratoAmount = 0, 
+                               vibratoSpeed = 3, pull = 1, timeDispersion = 0.01, acquisition = 0.1, pan = 0|
         var info = DelayN.kr(In.kr(infoBus, 2), delay+0.01, delay);
         var env = Env.asr(0.2);
         var envUgen = EnvGen.kr(env, gate, doneAction: Done.freeSelf);        
         var snd = DelayN.ar(Mix.ar(SoundIn.ar([0, 1])), delay+0.01, delay);
-        var adjustedTargetHz = (targetHz.cpsmidi.lag(0.05) + (envUgen * Amplitude.kr(snd)*vibratoAmt*SinOsc.kr(vibratoRate))).midicps;
+        var adjustedTargetHz = (targetHz.cpsmidi.lag(0.05) + (envUgen * Amplitude.kr(snd)*vibratoAmount*SinOsc.kr(vibratoSpeed))).midicps;
         var ratio = (pull*info[1].lag(acquisition).if(adjustedTargetHz/info[0], 1)) + (1 - pull);
 
         ratio = Sanitize.kr(ratio, 1);
-        Out.ar(out, amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion)!2); 
+        Out.ar(out, Pan2.ar(amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion)!2, pan)); 
       }).add;    
       
       Server.default.sync;
