@@ -136,6 +136,8 @@ Engine_TheMachine : CroneEngine {
     pitchFinderSynth.free;
     infoBus.free;
     pitchHandler.free;
-    endOfChainSynth.free
+    endOfChainSynth.free;
+    choirBus.free;
+    leadBus.free;
   }
 }
