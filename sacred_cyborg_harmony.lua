@@ -133,8 +133,9 @@ function init()
   params:add_control("vibrato speed", "vibrato speed", controlspec.LOFREQ)
   params:add_control("choir amp", "amp", amp_spec)
   params:add_control("choir formants", "formants @C3", controlspec.new(0.5, 2, 'lin', 0, 1, ""))
-  params:add_control("keytrack", "formant keytrack", controlspec.new(-1, 2, 'lin', 0, 0, ""))
+  params:add_control("keytrack", "formant keytrack", controlspec.new(-1, 2, 'lin', 0, 0.15, ""))
   params:add_control("choir pan", "pan", controlspec.BIPOLAR)
+  params:add_option("sensitivity", "velocity sensitivity", {"none", "linear", "square"}, 1)  
   
   
   midi_device = {} -- container for connected midi devices
@@ -174,7 +175,7 @@ function process_midi(data)
     local formant = params:get("choir formants")*(hz/music.note_num_to_freq(60))^params:get("keytrack")
     engine.noteOn(
       hz, 
-      params:get("choir amp")*d.vel/127, 
+      params:get("choir amp")*(d.vel/127)^(params:get("sensitivity")-1), 
       math.random()*params:get("delay"), 
       params:get("vibrato"), 
       params:get("vibrato speed"),
