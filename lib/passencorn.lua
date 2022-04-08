@@ -7,7 +7,7 @@ function find(array, value, low, high)
   local guess = math.floor((low + high)/2)
   if array[guess] == value then return guess end
   if array[guess] > value then return find(array, value, guess + 1, high) end
-  if array[guess] < value then return find(array, value, low, guess - 1) end
+  if array[guess] < value then return find(array, value, low, guess) end
 end
 
 function chord_type_complexity(chord_type)
