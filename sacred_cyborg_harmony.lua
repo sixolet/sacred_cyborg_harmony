@@ -153,6 +153,7 @@ function init()
   params:add_option("midi target", "midi target",midi_device_names,1)
   params:set_action("midi target", midi_target)
 
+  params:read()
   params:bang()
 end
 
