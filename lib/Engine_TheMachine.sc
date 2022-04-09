@@ -93,7 +93,7 @@ Engine_TheMachine : CroneEngine {
       }).add;
       
       SynthDef(\follower, { |infoBus, minFreq=82, maxFreq=1046|
-        var snd = Mix.ar(SoundIn.ar([0, 1]));
+        var snd = Mix.new(SoundIn.ar(0));
         var reference = LocalIn.kr(1);
         var info = Pitch.kr(snd, minFreq: minFreq, maxFreq: maxFreq);
         var midi = info[0].cpsmidi;
@@ -109,7 +109,7 @@ Engine_TheMachine : CroneEngine {
         var info = DelayN.kr(In.kr(infoBus, 2), delay+0.01, delay);
         var env = Env.asr(0.2);
         var envUgen = EnvGen.kr(env, gate, doneAction: Done.freeSelf);        
-        var snd = DelayN.ar(Mix.ar(SoundIn.ar([0, 1])), delay+0.01, delay);
+        var snd = DelayN.ar(Mix.new(SoundIn.ar(0)), delay+0.01, delay);
         var adjustedTargetHz = (targetHz.cpsmidi.lag(0.05) + (envUgen * Amplitude.kr(snd)*vibratoAmount*SinOsc.kr(vibratoSpeed))).midicps;
         var ratio = (pull*info[1].lag(acquisition).if(adjustedTargetHz/info[0], 1)) + (1 - pull);
         var shiftedSound, pannedSound;
@@ -117,6 +117,7 @@ Engine_TheMachine : CroneEngine {
         ratio = Sanitize.kr(ratio, 1);
         shiftedSound = amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion);
         pannedSound = Pan2.ar(shiftedSound, pan);
+        Out.ar(out,Pan2.ar(SoundIn.ar(1)));
         Out.ar(out, pannedSound); 
       }).add;    
       
