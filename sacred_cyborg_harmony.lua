@@ -128,7 +128,6 @@ function init()
   params:add_control("lead acquisition", "acquisition speed", controlspec.new(0.01, 0.5, 'exp', 0, 0.1, "s"))
   params:add_control("lead pan", "pan", controlspec.BIPOLAR)
   
-  
   params:add_separator("cyborg choir")
   local my_delay = controlspec.DELAY:copy()
   my_delay.default = 0.02
@@ -140,6 +139,12 @@ function init()
   params:add_control("keytrack", "formant keytrack", controlspec.new(-1, 2, 'lin', 0, 0.15, ""))
   params:add_control("choir pan", "pan", controlspec.BIPOLAR)
   params:add_option("sensitivity", "velocity sensitivity", {"none", "linear", "square"}, 1)  
+  
+  params:add_separator("input mixer")
+  params:add_control("input chan", "input chan", controlspec.BIPOLAR)
+  params:add_control("pass chan", "pass chan", controlspec.BIPOLAR)
+  params:add_control("pass amp", "pass amp", ampspec)
+  params:add_control("pass pan", "pass pan", controlspec.BIPOLAR)
   
   
   midi_device = {} -- container for connected midi devices
@@ -186,7 +191,12 @@ function process_midi(data)
       params:get("vibrato speed"),
       formant,
       params:get("choir pan"),
-      d.note)
+      d.note,
+      params:get("input chan"),
+      params:get("pass chan"),
+      params:get("pass amp"),
+      params:get("pass pan")
+    )
     screen_dirty = true
     -- print("on", d.note)
   elseif d.type == "note_off" then
@@ -218,7 +228,8 @@ function osc_in(path, args, from)
         -- print("pitch", pitch, "unquant", unquantizedSungNote, "quant", newNote)
         sungNote = newNote
         engine.acceptQuantizedPitch(
-          music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"), params:get("lead pan"))
+          music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"), params:get("lead pan"),
+	           params:get("input chan"),params:get("pass chan"),params:get("pass amp"),params:get("pass pan"))
       end
     end
   end
