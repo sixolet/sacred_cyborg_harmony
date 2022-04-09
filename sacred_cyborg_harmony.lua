@@ -106,6 +106,9 @@ function init()
   params:set_action("root", set_scale)
   params:add_option("scale", "scale", SCALE_NAMES, 1)
   params:set_action("scale", set_scale)
+  hysteresis_spec = controlspec.UNIPOLAR:copy()
+  hysteresis_spec.default = 0.5
+  params:add_control("hysteresis", "hysteresis", hysteresis_spec)
   local lowspec = controlspec.FREQ:copy()
   lowspec.default = 82
   local highspec = controlspec.FREQ:copy()
@@ -209,8 +212,9 @@ function osc_in(path, args, from)
     end
     -- Introduce a little bit of hysteresis if we're near
     if scale ~= nil then
-      local newNote = quantize(scale, pitch, sungNote)
+      local newNote = quantize(scale, pitch, sungNote, params:get("hysteresis"))
       if sungNote ~= newNote then
+        -- print("pitch", pitch, "unquant", unquantizedSungNote, "quant", newNote)
         sungNote = newNote
         engine.acceptQuantizedPitch(
           music.note_num_to_freq(sungNote), params:get("pull"), params:get("lead amp"), params:get("lead formants"), params:get("lead acquisition"), params:get("lead pan"))

@@ -158,17 +158,17 @@ function freq_to_note_num_float(freq)
   return util.clamp(12 * math.log(freq / 440.0) / math.log(2) + 69, 0, 127)
 end
 
-function quantize(scale, pitch, prevNote)
+function quantize(scale, pitch, prevNote, hysteresis)
   unquantizedNote = freq_to_note_num_float(pitch)
   if prevNote ~= nil then
     degree = find(scale, prevNote)
     upOneNote = scale[degree + 1]
     if upOneNote ~= nil and prevNote < unquantizedNote and unquantizedNote < upOneNote then
-      unquantizedNote = (0.4*unquantizedNote + 0.6*prevNote)
+      unquantizedNote = ((1-hysteresis)*unquantizedNote + hysteresis*prevNote)
     end
     downOneNote = scale[degree - 1]
     if downOneNote ~= nil and downOneNote < unquantizedNote and unquantizedNote < prevNote then
-      unquantizedNote = (0.4*unquantizedNote + 0.6*prevNote)/2
+      unquantizedNote = ((1-hysteresis)*unquantizedNote + hysteresis*prevNote)
     end
   end
   return music.snap_note_to_array(unquantizedNote, scale)
