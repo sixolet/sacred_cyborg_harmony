@@ -28,6 +28,7 @@ end
 
 function redraw()
   screen.clear()
+  screen.aa(1)
   local x, y
   for i=0,11,1 do
     if scaleSet[i] ~= nil then
