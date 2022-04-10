@@ -132,7 +132,7 @@ Engine_TheMachine : CroneEngine {
         
         ratio = Sanitize.kr(ratio, 1);
         shiftedSound = amp.lag(0.1)*envUgen*PitchShiftPA.ar(snd, freq: info[0], pitchRatio: ratio, formantRatio: formantRatio, timeDispersion: timeDispersion);
-        pannedSound = Pan2.ar(shiftedSound, pan.poll);
+        pannedSound = Pan2.ar(shiftedSound, pan);
         Out.ar(out, Pan2.ar(sndpass*passamp,passpan));
         Out.ar(out, pannedSound); 
       }).add;    
