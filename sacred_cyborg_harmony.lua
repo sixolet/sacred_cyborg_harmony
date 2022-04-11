@@ -86,6 +86,19 @@ function change_range()
   engine.setInputRange(params:get("low"), params:get("high"))
 end
 
+function change_input_mix()
+  if params:get("style") == 1 then -- mix to mono
+    engine.setMix(0.5, 0.5, 0, 0, 0);
+    params:hide("background amp")
+    params:hide("background pan")
+  elseif params:get("style") == 2 then
+    params:show("background amp")
+    params:show("background pan")    
+    engine.setMix(1, 0, 0, params:get("background amp"), params:get("background pan"))
+  end
+  _menu.rebuild_params()
+end
+
 function init()
   osc.event = osc_in
   screen_redraw_clock = clock.run(
@@ -156,6 +169,14 @@ function init()
   params:add_separator("midi")
   params:add_option("midi target", "midi target",midi_device_names,1)
   params:set_action("midi target", midi_target)
+  
+  params:add_separator("source")
+  params:add_option("style", "style", {"mix LR mono", "L voice R background"}, 1)
+  params:set_action("style", change_input_mix)
+  params:add_control("background amp", "background amp", amp_spec)
+  params:set_action("background amp", change_input_mix)
+  params:add_control("background pan", "background pan", controlspec.BIPOLAR)
+  params:set_action("background pan", change_input_mix)
 
   params:read()
   params:bang()
