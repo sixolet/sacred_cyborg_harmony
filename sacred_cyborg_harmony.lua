@@ -121,7 +121,7 @@ function init()
   params:add_option("scale", "scale", SCALE_NAMES, 1)
   params:set_action("scale", set_scale)
   hysteresis_spec = controlspec.UNIPOLAR:copy()
-  hysteresis_spec.default = 0.5
+  hysteresis_spec.default = 0.2
   params:add_control("hysteresis", "hysteresis", hysteresis_spec)
   local lowspec = controlspec.FREQ:copy()
   lowspec.default = 82
