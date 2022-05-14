@@ -1,3 +1,15 @@
+-- Sacred Cyborg
+--  Harmony
+
+-- @sixolet and @nonverbalpoetry
+
+-- Plug in a MIDI keyboard.
+-- Play a chord
+-- Sing. Cyborgs sing with you.
+
+-- All controls are in params.
+
+
 music = require 'musicutil'
 include('lib/passencorn')
 
