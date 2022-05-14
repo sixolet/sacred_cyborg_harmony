@@ -96,7 +96,9 @@ function change_input_mix()
     params:show("background pan")    
     engine.setMix(1, 0, 0, params:get("background amp"), params:get("background pan"))
   end
-  _menu.rebuild_params()
+  if _menu.rebuild_params ~= nil then
+    _menu.rebuild_params()
+  end
 end
 
 function init()
