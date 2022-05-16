@@ -17,9 +17,9 @@ Engine_TheMachine : CroneEngine {
 	  
 	  pitchHandler == OSCdef.new(\pitchHandler, { |msg, time|
 			var pitch = msg[3].asFloat;
-
-			luaOscAddr.sendMsg("/measuredPitch", pitch);
-		}, '/tr');
+            var amp = msg[4].asFloat;
+			luaOscAddr.sendMsg("/measuredPitch", pitch, amp);
+		}, '/pitch');
 		
 		this.addCommand("setMix", "fffff", { |msg|
 		  inL = msg[1].asFloat;
@@ -130,9 +130,9 @@ Engine_TheMachine : CroneEngine {
         var reference = LocalIn.kr(1);
         var info = Pitch.kr(snd, minFreq: minFreq, maxFreq: maxFreq);
         var midi = info[0].cpsmidi;
-        var trigger = info[1]*((midi - reference).abs > 0.2);
+        var trigger = info[1]*((midi - reference).abs > 0.2) + Impulse.kr(0.5);
         LocalOut.kr([Latch.kr(midi, trigger)]);
-        SendTrig.kr(trigger, 0, info[0]);
+        SendReply.kr(trigger, '/pitch', [info[0], Mix.kr(Amplitude.kr(in))]);
         Out.kr(infoBus, info);
         Out.ar(voiceInBus, snd);
         Out.ar(backgroundBus, Pan2.ar(background, backgroundPan));

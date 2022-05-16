@@ -23,6 +23,7 @@ scale = nil
 scaleSet = {}
 activePitchClasses = {}
 sungNote = nil
+amp = 0
 
 function set_scale()
   scale = music.generate_scale(params:get("root") - 12, scale_name(), 10)
@@ -42,6 +43,12 @@ function redraw()
   screen.clear()
   screen.aa(1)
   local x, y
+  screen.move(2, 58)
+  if amp == 0 then
+    screen.text("no input")
+    screen.stroke()
+  end
+      
   for i=0,11,1 do
     if scaleSet[i] ~= nil then
       screen.level(15)
@@ -53,6 +60,11 @@ function redraw()
     screen.circle(x, y, 2)
     screen.fill()
     if sungNote ~= nil and sungNote % 12 == i then
+      if amp < 0.01 then
+        screen.level(3)
+      else
+        screen.level(8)
+      end        
       screen.move(64, 32)
       screen.line(x, y)
       screen.stroke()
@@ -83,7 +95,11 @@ function redraw()
     local i = unquantizedSungNote % 12
     local x = 64 - 10*math.sin(2 * math.pi * (i/12))
     local y = 32 + 7*math.cos(2 * math.pi * (i/12))
-    screen.level(8)
+    if amp < 0.01 then
+      screen.level(1)
+    else
+      screen.level(8)
+    end
     screen.move(64, 32)
     screen.line(x, y)
     screen.stroke()
@@ -240,6 +256,7 @@ function osc_in(path, args, from)
 
   if path == "/measuredPitch" then
     local pitch = args[1]
+    amp = args[2]
     -- print(pitch)
     unquantizedSungNote = freq_to_note_num_float(pitch)
     screen_dirty = true
